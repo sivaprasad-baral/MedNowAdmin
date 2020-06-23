@@ -3,14 +3,25 @@ package com.example.mednowadmin;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.Context;
+import android.content.Intent;
+import android.location.Location;
+import android.net.ConnectivityManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.view.View;
+import android.view.WindowManager;
+import android.view.animation.AnimationUtils;
 import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import com.airbnb.lottie.LottieAnimationView;
 import com.example.mednowadmin.model.Medicine;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -21,6 +32,9 @@ import java.util.Objects;
 
 public class MainActivity extends AppCompatActivity {
 
+    ImageView imageViewLogo;
+    TextView textViewAppName,textViewPartnerApp;
+    LottieAnimationView lottieNoInternet;
     String name,price;
     boolean newMed = true;
 
@@ -33,63 +47,41 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        editTextMedicineName = findViewById(R.id.main_edit_text_medicine_name);
-        editTextMedicinePrice = findViewById(R.id.main_edit_text_medicine_price);
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
-        databaseReference = FirebaseDatabase.getInstance().getReference("Medicine");
+        imageViewLogo = findViewById(R.id.main_image_view_logo);
+        textViewAppName = findViewById(R.id.main_text_view_app_name);
+        textViewPartnerApp = findViewById(R.id.main_text_view_partner_app);
+        lottieNoInternet = findViewById(R.id.main_lottie_no_internet);
+
+        imageViewLogo.startAnimation(AnimationUtils.loadAnimation(MainActivity.this,R.anim.fade_in_top));
+        textViewAppName.startAnimation(AnimationUtils.loadAnimation(MainActivity.this,R.anim.fade_in_bottom));
+        textViewPartnerApp.startAnimation(AnimationUtils.loadAnimation(MainActivity.this,R.anim.fade_in_bottom));
+
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if(isConnected()) {
+                    if(isLoggedIn()) {
+                        startActivity(new Intent(MainActivity.this, Login.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
+                    } else {
+                        startActivity(new Intent(MainActivity.this,Login.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
+                    }
+                } else {
+                    imageViewLogo.setVisibility(View.GONE);
+                    textViewAppName.setVisibility(View.GONE);
+                    textViewPartnerApp.setVisibility(View.GONE);
+                    lottieNoInternet.setVisibility(View.VISIBLE);
+                }
+            }
+        }, 3000);
     }
 
-    public void addMedBtn(View view) {
-        name = editTextMedicineName.getText().toString();
-        price = editTextMedicinePrice.getText().toString();
-        if(name.isEmpty()) {
-            editTextMedicineName.setError("Invalid name");
-            editTextMedicineName.requestFocus();
-            return;
-        } else if(price.isEmpty() || Integer.parseInt(price) == 0) {
-            editTextMedicinePrice.setError("Invalid price");
-            editTextMedicinePrice.requestFocus();
-            return;
-        }
-        databaseReference.addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                for(DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                    Medicine med = snapshot.getValue(Medicine.class);
-                    if(name.equalsIgnoreCase(Objects.requireNonNull(med).getMedName())) {
-                        editTextMedicineName.setError("Medicine already added");
-                        editTextMedicineName.requestFocus();
-                        editTextMedicineName.setText(null);
-                        editTextMedicinePrice.setText(null);
-                        newMed = false;
-                        break;
-                    }
-                }
-                databaseReference.removeEventListener(this);
-                if(newMed) {
-                    String id = databaseReference.push().getKey();
-                    Medicine medicine = new Medicine(name,price,id);
-                    databaseReference.child(Objects.requireNonNull(id)).setValue(medicine).addOnCompleteListener(new OnCompleteListener<Void>() {
-                        @Override
-                        public void onComplete(@NonNull Task<Void> task) {
-                            if(task.isSuccessful()) {
-                                Toast.makeText(MainActivity.this,"Added medicine to database",Toast.LENGTH_SHORT).show();
-                                editTextMedicineName.setText(null);
-                                editTextMedicinePrice.setText(null);
-                                editTextMedicineName.requestFocus();
-                                newMed = true;
-                            } else {
-                                Toast.makeText(MainActivity.this, Objects.requireNonNull(task.getException()).getMessage(),Toast.LENGTH_SHORT).show();
-                            }
-                        }
-                    });
-                }
-            }
+    public boolean isConnected() {
+        return ((ConnectivityManager) Objects.requireNonNull(getApplicationContext().getSystemService(Context.CONNECTIVITY_SERVICE))).getActiveNetworkInfo() != null;
+    }
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError databaseError) {
-                Toast.makeText(MainActivity.this,databaseError.getMessage(),Toast.LENGTH_SHORT).show();
-            }
-        });
+    public boolean isLoggedIn() {
+        return FirebaseAuth.getInstance().getCurrentUser() != null;
     }
 }

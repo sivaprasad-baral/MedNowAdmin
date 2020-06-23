@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">MedNowAdmin</string>
+    <string name="display_app_name">M e d N o w</string>
+    <string name="display_partner">Admin App</string>
 </resources>
